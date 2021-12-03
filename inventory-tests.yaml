@@ -1,0 +1,38 @@
+---
+all:
+  children:
+    load_balancer:
+      hosts:
+        kube.lab-lpp.local:
+            ansible_host: 129.104.6.177
+
+    main_master:
+      hosts:
+        kube-master1.lab-lpp.local:
+            ansible_host: 129.104.6.178
+
+    secondary_masters:
+      hosts:
+        kube-master2.lab-lpp.local:
+            ansible_host: 129.104.6.179
+        kube-master3.lab-lpp.local:
+            ansible_host: 129.104.6.180
+
+    masters:
+      children:
+        main_master:
+        secondary_masters:
+
+    workers:
+      hosts:
+        kube-node1.lab-lpp.local:
+            ansible_host: 129.104.6.181
+        kube-node2.lab-lpp.local:
+            ansible_host: 129.104.6.182
+        kube-node3.lab-lpp.local:
+            ansible_host: 129.104.6.183
+
+    all_nodes:
+      children:
+        masters:
+        workers:

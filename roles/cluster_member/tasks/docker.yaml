@@ -1,0 +1,16 @@
+- name: "Check if docker is installed (Debian)"
+  command: dpkg -s "docker-ce"
+  register: has_docker
+  ignore_errors: true
+
+- name: Download docker convenience install script
+  get_url:
+    url: https://get.docker.com
+    dest: /tmp/install-docker.sh
+    mode: '0550'
+  when: "'is not installed' in has_docker.stderr"
+
+- name: install docker using the convenience script
+  shell: |
+    sh /tmp/install-docker.sh
+  when: "'is not installed' in has_docker.stderr"

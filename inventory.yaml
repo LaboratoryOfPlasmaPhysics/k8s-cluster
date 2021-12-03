@@ -1,0 +1,8 @@
+---
+all:
+  children:
+    production:
+      hosts:
+        k8s.lab-lpp.local:
+          ansible_host: 129.104.6.165
+

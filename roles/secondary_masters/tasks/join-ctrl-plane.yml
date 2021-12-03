@@ -1,0 +1,16 @@
+- name: Join control plane
+  ansible.builtin.script: "{{ playbook_dir }}/kube-master-join"
+
+- name: Wait few seconds that pods are ready
+  pause:
+    seconds: 15
+
+- name: Setup kubectl for main master
+  shell: |
+    mkdir -p $HOME/.kube
+    cp -rf /etc/kubernetes/admin.conf $HOME/.kube/config
+    chown $(id -u):$(id -g) $HOME/.kube/config
+
+- name: Wait few seconds that pods are ready
+  pause:
+    seconds: 15

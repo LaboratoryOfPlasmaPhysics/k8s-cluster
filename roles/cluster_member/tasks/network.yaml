@@ -1,0 +1,28 @@
+- name: "Ensure br_netfilter is loaded"
+  command: lsmod | grep br_netfilter
+  register: br_netfilter_loaded
+  ignore_errors: true
+
+- name: add br_netfilter to modules to load
+  copy:
+    mode: '0644'
+    dest: "/etc/modules-load.d/k8s.conf"
+    content: |
+      br_netfilter
+  when: "'br_netfilter' not in br_netfilter_loaded.stdout"
+
+- name: load br_netfilter now
+  command: modprobe br_netfilter
+  when: "'br_netfilter' not in br_netfilter_loaded.stdout"
+
+
+- name: iptable stuff
+  copy:
+    mode: '0644'
+    dest: "/etc/sysctl.d/k8s.conf"
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+
+- name: iptable stuff
+  command: sysctl --system

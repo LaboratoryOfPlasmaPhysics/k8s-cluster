@@ -1,0 +1,35 @@
+- name: check if longhorn is installed
+  command: kubectl get all --namespace longhorn-system
+  ignore_errors: yes
+  register: cmd_result
+
+- name: Install longhorn 
+  shell: 'kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.2.2/deploy/longhorn.yaml'
+  when: "'pod/longhorn' not in cmd_result.stdout"
+
+- name: patch longhorn ui service to use NodePort
+  command: kubectl -n longhorn-system patch svc longhorn-frontend --type='json' -p '[{"op":"replace","path":"/spec/type","value":"NodePort"}]'
+  when: "'pod/longhorn' not in cmd_result.stdout"
+
+- name: Wait few seconds that pods are ready
+  pause:
+    seconds: 30
+  when: "'pod/longhorn' not in cmd_result.stdout"
+
+- name: Create StorageClass for big volumes
+  k8s:
+    state: present
+    definition:
+      kind: StorageClass
+      apiVersion: storage.k8s.io/v1
+      metadata:
+        name: longhorn-big
+      provisioner: driver.longhorn.io
+      allowVolumeExpansion: true
+      reclaimPolicy: Delete
+      volumeBindingMode: Immediate
+      parameters:
+        numberOfReplicas: "1"
+        staleReplicaTimeout: "2880" # 48 hours in minutes
+        fromBackup: ""
+        fsType: "ext4"

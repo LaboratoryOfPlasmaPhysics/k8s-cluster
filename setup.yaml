@@ -1,0 +1,53 @@
+---
+- name: Common base setup
+  hosts: all
+  remote_user: root
+  vars:
+    join_domain: false
+    enable_jails: [sshd]
+  roles:
+    - lpp_machine
+    - fail2ban
+    - all_machines
+    
+- name: Cluster load balancer setup
+  hosts: load_balancer
+  remote_user: root
+  roles:
+    - haproxy
+
+- name: Cluster members base setup
+  hosts: all_nodes
+  remote_user: root
+  roles:
+    - cluster_member
+
+- name: Create control plane
+  hosts: masters
+  remote_user: root
+  roles:
+    - masters
+
+- name: Create control plane
+  hosts: main_master
+  remote_user: root
+  roles:
+    - main_master
+
+- name: join control plane
+  hosts: secondary_masters
+  remote_user: root
+  roles:
+    - secondary_masters
+
+- name: join cluster
+  hosts: workers
+  remote_user: root
+  roles:
+    - workers
+
+- name: setup cluster basic services
+  hosts: main_master
+  remote_user: root
+  roles:
+    - cluster

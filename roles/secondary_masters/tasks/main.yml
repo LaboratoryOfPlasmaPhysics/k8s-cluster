@@ -1,0 +1,7 @@
+- name: Check if control plane is already joined
+  stat: path=/etc/kubernetes/kubelet.conf
+  register: has_joined
+
+- name: Create control plane
+  include: join-ctrl-plane.yml
+  when: has_joined.stat.exists is defined and not has_joined.stat.exists

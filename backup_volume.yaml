@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restore-to-file
+  namespace: longhorn-system
+spec:
+  nodeName: k8s-node7.lab-lpp.local
+  containers:
+  - name: restore-to-file
+    command:
+    # set restore-to-file arguments here
+    - /bin/sh
+    - -c
+    - longhorn backup restore-to-file
+      'nfs://nas-pal.lab-lpp.local:/data/backups/k8s?backup=backup-951fc930aaa445bc&volume=pvc-d09325ea-2cb8-4365-8c0c-4c13ae8ff82b'
+      --output-file '/backups/syncthing-storage-pvc.qcow2'
+      --output-format qcow2
+    # the version of longhorn engine should be v0.4.1 or higher
+    image: rancher/longhorn-engine:v0.4.1
+    imagePullPolicy: IfNotPresent
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: disk-directory
+      mountPath: /backups  # the argument <output-file> should be in this directory
+  volumes:
+    # the output file can be found on this host path
+    - name: disk-directory
+      hostPath:
+        path: /backups
+  restartPolicy: Never

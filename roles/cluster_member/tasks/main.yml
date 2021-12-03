@@ -1,0 +1,16 @@
+- name: install docker
+  include: docker.yaml
+
+- name: configure specific network stuff for kubernetes
+  include: network.yaml
+
+- name: install kubernetes tools
+  include: kubernetes.yaml
+
+
+- name: Install longhorn deps
+  apt:
+    name: 
+      - jq
+      - open-iscsi
+      - nfs-common

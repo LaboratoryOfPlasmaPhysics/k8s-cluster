@@ -1,0 +1,6 @@
+- name: Join control plane
+  ansible.builtin.script: "{{ playbook_dir }}/kube-worker-join"
+
+- name: Wait few seconds that pods are ready
+  pause:
+    seconds: 15

@@ -1,0 +1,29 @@
+- name: Init first master node
+  shell: 'kubeadm init --control-plane-endpoint {{ hostvars[groups["load_balancer"][0]].ansible_nodename }}:6443 --upload-certs'
+  register: output
+
+- name: Setup kubectl for main master
+  shell: |
+    mkdir -p $HOME/.kube
+    cp -rf /etc/kubernetes/admin.conf $HOME/.kube/config
+    chown $(id -u):$(id -g) $HOME/.kube/config
+
+- name: Wait 1 minute that pods are ready
+  pause:
+    seconds: 15
+
+- name: Setup CNI plugin
+  shell: kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')"
+
+- name: save kubeadm init output
+  local_action: copy content="{{ output.stdout }}" dest="./join.log"
+
+- name: extract master node join command
+  local_action: copy content="{{ output.stdout | regex_replace('\\\\\\n','') | regex_search('kubeadm join .*plane.*') }}" dest="{{ playbook_dir }}/kube-master-join"
+
+- name: extract worker node join command
+  local_action: copy content="{{ ( output.stdout | regex_replace('\\\\\\n','') ).split('\n') | last }}" dest="{{ playbook_dir }}/kube-worker-join"
+
+- name: Wait 1 minute that pods are ready
+  pause:
+    minutes: 1

@@ -1,0 +1,7 @@
+- name: Check if control plane already exist
+  stat: path=/etc/kubernetes/kubelet.conf
+  register: ctrl_plane_exists
+
+- name: Create control plane
+  include: create-ctrl-plane.yml
+  when: ctrl_plane_exists.stat.exists is defined and not ctrl_plane_exists.stat.exists

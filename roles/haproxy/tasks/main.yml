@@ -1,0 +1,48 @@
+- name: haproxy
+  apt:
+    name: haproxy
+
+- name: Configure haproxy
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: create dynamic haproxy conf folder
+  ansible.builtin.file:
+    path: /etc/haproxy.cfg.d
+    owner: root
+    group: root
+    state: directory
+
+- name: tell haproxy to load cfg files from /etc/haproxy.cfg.d
+  ansible.builtin.lineinfile:
+    path: /etc/default/haproxy
+    regexp: '^EXTRAOPTS='
+    insertafter: '^#EXTRAOPTS='
+    line: EXTRAOPTS=-f /etc/haproxy.cfg.d
+
+- name: Copying the Directory's contents (sub directories/files)
+  become: true 
+  copy:
+    src: "{{ playbook_dir }}/roles/haproxy/certificates"
+    dest: /etc/haproxy/
+    owner: root
+    group: root        
+    mode: 0644
+
+- name: Add k8s API haproxy cfg
+  template:
+    src: k8s.cfg.j2
+    dest: /etc/haproxy.cfg.d/k8s.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable service haproxy
+  service:
+    name: haproxy
+    enabled: yes
+    state: restarted

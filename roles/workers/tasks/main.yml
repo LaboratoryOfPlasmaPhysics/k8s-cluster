@@ -1,0 +1,7 @@
+- name: Check if cluster is already joined
+  stat: path=/etc/kubernetes/kubelet.conf
+  register: has_joined
+
+- name: join cluster
+  include: join-cluster.yml
+  when: has_joined.stat.exists is defined and not has_joined.stat.exists

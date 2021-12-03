@@ -1,0 +1,21 @@
+- name: Add IP address of all hosts to all hosts
+  lineinfile:
+    dest: /etc/hosts
+    regexp: '.*{{ item }}$'
+    line: "{{ hostvars[item].ansible_host }} {{ item }} {{ item.split('.')[0] }}"
+    state: present
+  when: hostvars[item].ansible_host is defined
+  loop: "{{ groups.all | reject('match', inventory_hostname) | list | flatten(1) }}"
+
+- name: reduce systemd journal log level (1)
+  lineinfile:
+    dest: /etc/systemd/journald.conf
+    regexp: '^#MaxLevelStore=debug'
+    line: 'MaxLevelStore=notice'
+
+
+- name: reduce systemd journal log level (2)
+  lineinfile:
+    dest: /etc/systemd/journald.conf
+    regexp: '^#MaxLevelSyslog=debug'
+    line: 'MaxLevelSyslog=notice'
