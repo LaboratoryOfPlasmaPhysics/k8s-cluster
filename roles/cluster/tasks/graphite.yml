@@ -1,0 +1,400 @@
+- name:  Ensure monitoring exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: monitoring
+
+- name: Create graphite data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-storage-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 200Gi
+
+- name: Create graphite conf PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-conf-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 1Gi
+
+- name: Create graphite statsd conf PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-statsd-conf-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 1Gi
+
+- name: Create graphite Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: graphite
+        labels:
+          app: graphite
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: graphite
+        template:
+          metadata:
+            labels:
+              app: graphite
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: graphite-stats-storage
+                persistentVolumeClaim:
+                  claimName: graphite-storage-pvc
+              - name: graphite-config
+                persistentVolumeClaim:
+                  claimName: graphite-conf-pvc
+              - name: statsd-config
+                persistentVolumeClaim:
+                  claimName: graphite-statsd-conf-pvc
+            containers:
+            - name: grahite-memcached
+              image: memcached
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "256Mi"
+                requests:
+                  cpu: "2"
+                  memory: "256Mi"
+              imagePullPolicy: Always
+            - name: graphite
+              image: graphiteapp/graphite-statsd
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "500Mi"
+                requests:
+                  cpu: "2"
+                  memory: "500Mi"
+              imagePullPolicy: Always
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                  - /opt/graphite/storage/lost+found
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              env:
+              - name: GRAPHITE_WSGI_PROCESSES
+                value: "4"
+              - name: GRAPHITE_WSGI_THREADS
+                value: "4"
+              - name: TAGDB
+                value: "None"
+              - name: ENABLE_TAGS
+                value: "False"
+              - name: MEMCACHE_HOST
+                value: "localhost:11211"
+              ports:
+                - containerPort: 80
+                  name: nginx
+                - containerPort: 2003
+                  name: carb-rec-plain
+                - containerPort: 2004
+                  name: carb-rec-pickle
+                - containerPort: 2023
+                  name: carb-agr-plain
+                - containerPort: 2024
+                  name: carb-agr-pickle
+                - containerPort: 8125
+                  name: statsd
+                  protocol: UDP
+                - containerPort: 8126
+                  name: statsd-admin
+              volumeMounts:
+                - mountPath: "/opt/graphite/conf"
+                  name: graphite-config
+                - mountPath: "/opt/graphite/storage"
+                  name: graphite-stats-storage
+                - mountPath: "/opt/statsd/config"
+                  name: statsd-config
+
+
+- name: Create graphite Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: graphite
+        name: graphite
+        namespace: monitoring
+      spec:
+        selector:
+          app: graphite
+        type: NodePort
+        ports:
+          - port: 80
+            name: nginx
+            targetPort: 80
+            protocol: TCP
+            nodePort: 31081
+          - port: 2003
+            name: carb-rec-plain
+            targetPort: 2003
+            protocol: TCP
+            nodePort: 31003
+          - port: 2004
+            name: carb-rec-pickle
+            targetPort: 2004
+            protocol: TCP
+            nodePort: 31004
+          - port: 2023
+            name: carb-agr-plain
+            targetPort: 2023
+            protocol: TCP
+            nodePort: 31023
+          - port: 2024
+            name: carb-agr-pickle
+            targetPort: 2024
+            protocol: TCP
+            nodePort: 31024
+          - port: 8125
+            name: statsd
+            targetPort: 8125
+            protocol: UDP
+            nodePort: 31125
+
+
+
+- name: Create graphite (sensors) data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-sensors-storage-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 200Gi
+
+- name: Create graphite (sensors) conf PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-sensors-conf-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 10Mi
+
+- name: Create graphite (sensors) statsd conf PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: graphite-sensors-statsd-conf-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 10Mi
+
+- name: Create graphite Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: graphite-sensors
+        labels:
+          app: graphite-sensors
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: graphite-sensors
+        template:
+          metadata:
+            labels:
+              app: graphite-sensors
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: graphite-sensors-storage-schemas
+                configMap:
+                  name: graphite-sensors-storage-schemas
+              - name: graphite-sensors-stats-storage
+                persistentVolumeClaim:
+                  claimName: graphite-sensors-storage-pvc
+              - name: graphite-sensors-config
+                persistentVolumeClaim:
+                  claimName: graphite-sensors-conf-pvc
+              - name: statsd-sensors-config
+                persistentVolumeClaim:
+                  claimName: graphite-sensors-statsd-conf-pvc
+            containers:
+            - name: grahite-memcached
+              image: memcached
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "256Mi"
+                requests:
+                  cpu: "2"
+                  memory: "256Mi"
+              imagePullPolicy: Always
+            - name: graphite
+              image: graphiteapp/graphite-statsd
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "500Mi"
+                requests:
+                  cpu: "2"
+                  memory: "500Mi"
+              imagePullPolicy: Always
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                  - /opt/graphite/storage/lost+found
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              env:
+              - name: GRAPHITE_WSGI_PROCESSES
+                value: "4"
+              - name: GRAPHITE_WSGI_THREADS
+                value: "4"
+              - name: TAGDB
+                value: "None"
+              - name: ENABLE_TAGS
+                value: "False"
+              - name: MEMCACHE_HOST
+                value: "localhost:11211"
+              ports:
+                - containerPort: 80
+                  name: nginx
+                - containerPort: 2003
+                  name: carb-rec-plain
+                - containerPort: 2004
+                  name: carb-rec-pickle
+                - containerPort: 2023
+                  name: carb-agr-plain
+                - containerPort: 2024
+                  name: carb-agr-pickle
+                - containerPort: 8125
+                  name: statsd
+                  protocol: UDP
+                - containerPort: 8126
+                  name: statsd-admin
+              volumeMounts:
+                - mountPath: "/opt/graphite/conf"
+                  name: graphite-sensors-config
+                - mountPath: "/opt/graphite/storage"
+                  name: graphite-sensors-stats-storage
+                - mountPath: "/opt/statsd/config"
+                  name: statsd-sensors-config
+
+- name: Create graphite (sensors) Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: graphite-sensors
+        name: graphite-sensors
+        namespace: monitoring
+      spec:
+        selector:
+          app: graphite-sensors
+        type: NodePort
+        ports:
+          - port: 80
+            name: nginx
+            targetPort: 80
+            protocol: TCP
+            nodePort: 31280
+          - port: 2003
+            name: carb-rec-plain
+            targetPort: 2003
+            protocol: TCP
+            nodePort: 31203
+          - port: 2004
+            name: carb-rec-pickle
+            targetPort: 2004
+            protocol: TCP
+            nodePort: 31204
+          - port: 2023
+            name: carb-agr-plain
+            targetPort: 2023
+            protocol: TCP
+            nodePort: 31223
+          - port: 2024
+            name: carb-agr-pickle
+            targetPort: 2024
+            protocol: TCP
+            nodePort: 31224
+          - port: 8125
+            name: statsd
+            targetPort: 8125
+            protocol: UDP
+            nodePort: 31225

@@ -19,3 +19,33 @@
     dest: /etc/systemd/journald.conf
     regexp: '^#MaxLevelSyslog=debug'
     line: 'MaxLevelSyslog=notice'
+
+- name: set resolv.conf
+  template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+
+- name: add non-free
+  apt_repository:
+    repo: deb http://deb.debian.org/debian/ bullseye main non-free contrib
+    state: present
+
+- name: add non-free (src)
+  apt_repository:
+    repo: deb-src http://deb.debian.org/debian/ bullseye main non-free contrib
+    state: present
+
+- name: install nonfree firmwares 
+  apt:
+    name: 
+      - firmware-linux-nonfree 
+      - firmware-misc-nonfree
+
+- name: install ipmi tools
+  apt:
+    name: openipmi
+  when: is_dell_server

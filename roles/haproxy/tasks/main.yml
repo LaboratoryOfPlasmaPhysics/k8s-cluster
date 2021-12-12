@@ -41,6 +41,31 @@
     group: root
     mode: '0644'
 
+- name: Add https haproxy cfg
+  template:
+    src: http_https.cfg.j2
+    dest: /etc/haproxy.cfg.d/http_https.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add registry haproxy cfg
+  template:
+    src: registry.cfg.j2
+    dest: /etc/haproxy.cfg.d/registry.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add graphite haproxy cfg
+  template:
+    src: graphite.cfg.j2
+    dest: /etc/haproxy.cfg.d/graphite.cfg
+    owner: root
+    group: root
+    mode: '0644'
+
+
 - name: Enable service haproxy
   service:
     name: haproxy

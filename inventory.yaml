@@ -1,8 +1,54 @@
 ---
 all:
   children:
-    production:
+    load_balancer:
       hosts:
         k8s.lab-lpp.local:
           ansible_host: 129.104.6.165
+          is_dell_server: true
 
+    main_master:
+      hosts:
+        k8s-master1.lab-lpp.local:
+          ansible_host: 129.104.6.166
+          is_dell_server: false
+
+    secondary_masters:
+      hosts:
+        k8s-master2.lab-lpp.local:
+          ansible_host: 129.104.6.167
+          is_dell_server: false
+        k8s-master3.lab-lpp.local:
+          ansible_host: 129.104.6.168
+          is_dell_server: false
+        k8s-master4.lab-lpp.local:
+          ansible_host: 129.104.6.169
+          is_dell_server: false
+
+    masters:
+      children:
+        main_master:
+        secondary_masters:
+
+    workers:
+      hosts:
+        k8s-node1.lab-lpp.local:
+          ansible_host: 129.104.6.170
+          is_dell_server: true
+        k8s-node2.lab-lpp.local:
+          ansible_host: 129.104.6.171
+          is_dell_server: true
+        k8s-node4.lab-lpp.local:
+          ansible_host: 129.104.6.173
+          is_dell_server: true
+        k8s-node5.lab-lpp.local:
+          ansible_host: 129.104.6.174
+          is_dell_server: true
+        k8s-node7.lab-lpp.local:
+          ansible_host: 129.104.6.176
+          is_dell_server: true
+
+    all_nodes:
+      children:
+        masters:
+        workers:

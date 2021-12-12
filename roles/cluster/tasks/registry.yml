@@ -1,0 +1,153 @@
+- name: Create docker-registry namespace
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: docker-registry
+
+- name: Create registry PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: docker-registry-volv-pvc
+        namespace: docker-registry
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 500Gi
+
+- name: Create Registry Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: registry
+        labels:
+          app: registry
+        namespace: docker-registry
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: registry
+        template:
+          metadata:
+            labels:
+              app: registry
+          spec:
+            volumes:
+              - name: registry-data
+                persistentVolumeClaim:
+                  claimName: docker-registry-volv-pvc
+            restartPolicy: Always
+            containers:
+            - name: registry
+              env:
+                - name: REGISTRY_STORAGE_DELETE_ENABLED
+                  value: "true"
+              image: registry:2
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 5000
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                  - /var/lib/registry/lost+found
+              volumeMounts:
+                - mountPath: "/var/lib/registry"
+                  name: registry-data
+                
+
+- name: Create Registry Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: registry
+        name: registry
+        namespace: docker-registry
+      spec:
+        selector:
+          app: registry
+        type: NodePort
+        ports:
+          - port: 5000
+            targetPort: 5000
+            protocol: TCP
+            nodePort: 32219
+
+
+- name: Create Registry-ui Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: registry-ui
+        labels:
+          app: registry-ui
+        namespace: docker-registry
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: registry-ui
+        template:
+          metadata:
+            labels:
+              app: registry-ui
+          spec:
+            containers:
+            - name: registry-ui
+              image: joxit/docker-registry-ui:latest
+              imagePullPolicy: Always
+              env:
+                - name: SINGLE_REGISTRY
+                  value: 'true'
+                - name: REGISTRY_URL
+                  value: 'https://registry.lpp.polytechnique.fr/'
+                - name: NGINX_PROXY_PASS_URL
+                  value: 'http://129.104.6.166:32219'
+                - name: DELETE_IMAGES
+                  value: 'true'
+                - name: REGISTRY_TITLE
+                  value: LPP's registry
+              ports:
+              - containerPort: 80
+                name: registry-ui
+                protocol: TCP
+
+- name: Create Registry-ui Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: registry-ui
+        name: registry-ui
+        namespace: docker-registry
+      spec:
+        selector:
+          app: registry-ui
+        type: NodePort
+        ports:
+          - port: 80
+            protocol: TCP
+            nodePort: 30999

@@ -1,0 +1,67 @@
+- name: Ensure compiler-explorer exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: compiler-explorer
+
+- name: Create compiler-explorer Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: compiler-explorer
+        labels:
+          app: compiler-explorer
+        namespace: compiler-explorer
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: compiler-explorer
+        template:
+          metadata:
+            labels:
+              app: compiler-explorer
+          spec:
+            restartPolicy: Always
+            containers:
+            - name: compiler-explorer
+              image: registry.lpp.polytechnique.fr/lpp/compiler_explorer
+              resources:
+                limits:
+                  cpu: "8"
+                  memory: "16Gi"
+                requests:
+                  cpu: "2"
+                  memory: "1024Mi"
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 10240
+                  name: http
+
+- name: Create compiler-explorer Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: compiler-explorer
+        name: compiler-explorer
+        namespace: compiler-explorer
+      spec:
+        selector:
+          app: compiler-explorer
+        type: NodePort
+        ports:
+          - port: 10240
+            name: http
+            targetPort: 10240
+            protocol: TCP
+            nodePort: 30004

@@ -1,0 +1,60 @@
+- name: Create TeamCity namespace
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: teamcity
+
+- name: Create TeamCity user
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: teamcity-user
+          namespace: teamcity
+
+- name: Set permissions for TeamCity user
+  k8s:
+    state: present
+    definition:
+        kind: Role
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+            name: teamcity-user-full-access
+            namespace: teamcity
+        rules:
+        - apiGroups: [""]
+          resources: ["namespaces"]
+          verbs: ["list", "get"]
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "create", "list", "delete"]
+        - apiGroups: ["extensions", "apps"]
+          resources: ["deployments"]
+          verbs: ["list", "get"]
+
+- name: Set roles for TeamCity user
+  k8s:
+    state: present
+    definition:
+        kind: RoleBinding
+        apiVersion: rbac.authorization.k8s.io/v1
+        metadata:
+            name: teamcity-user-view
+            namespace: teamcity
+        subjects:
+        - kind: User
+          name: teamcity-user
+          namespace: teamcity
+        - kind: ServiceAccount
+          name: teamcity-user
+          namespace: teamcity
+        roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: teamcity-user-full-access
+#  kubectl -n teamcity describe $(kubectl -n teamcity get secret -o name | grep user) | grep token:

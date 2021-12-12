@@ -1,0 +1,127 @@
+- name: Ensure monitoring exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: monitoring
+
+- name: Create grafana data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: grafana-storage-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 2Gi
+
+
+- name: Create grafana Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: grafana
+        labels:
+          app: grafana
+        namespace: monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: grafana
+        template:
+          metadata:
+            labels:
+              app: grafana
+          spec:
+            securityContext:
+              runAsUser: 472
+              runAsGroup: 1
+              fsGroup: 472
+            restartPolicy: Always
+            volumes:
+              - name: grafana-storage
+                persistentVolumeClaim:
+                  claimName: grafana-storage-pvc
+            containers:
+            - name: grafana
+              image: registry.lpp.polytechnique.fr/lpp/grafana
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "500Mi"
+                requests:
+                  cpu: "2"
+                  memory: "500Mi"
+              imagePullPolicy: Always
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                  - /var/lib/grafana/lost+found
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              envFrom:
+              - secretRef:
+                  name: grafana-secret
+              env:
+              - name: GF_SERVER_ROOT_URL
+                value: "https://hephaistos.lpp.polytechnique.fr/grafana"
+              - name: GF_SERVER_PROTOCOL
+                value: "https"
+              - name: GF_SMTP_ENABLED
+                value: "true"
+              - name: GF_SMTP_FROM_ADDRESS
+                value: "grafana@lpp.polytechnique.fr"
+              - name: GF_SECURITY_ADMIN_PASSWORD
+                value: "defaultpwd"
+              - name: GF_AUTH_ANONYMOUS_ENABLED
+                value: "true"
+              - name: GF_SECURITY_ALLOW_EMBEDDING
+                value: "true"
+              - name: GF_AUTH_ANONYMOUS_ORG_NAME
+                value: "LPP.public"
+              - name: GF_SERVER_CERT_FILE
+                value: "/var/lib/grafana/grafana_cert/grafana_lab_lpp_local.crt"
+              - name: GF_SERVER_CERT_KEY
+                value: "/var/lib/grafana/grafana_cert/grafana_lab_lpp_local.key"
+              ports:
+                - containerPort: 3000
+                  name: http
+              volumeMounts:
+                - mountPath: "/var/lib/grafana"
+                  name: grafana-storage
+                  
+- name: Create grafana Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: grafana
+        name: grafana
+        namespace: monitoring
+      spec:
+        selector:
+          app: grafana
+        type: NodePort
+        ports:
+          - port: 3000
+            name: http
+            targetPort: 3000
+            protocol: TCP
+            nodePort: 31080

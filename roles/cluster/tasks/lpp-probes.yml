@@ -1,0 +1,43 @@
+- name: Ensure  monitoring namespace exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name:  monitoring
+
+- name: Create lpp-probes Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: lpp-probes
+        labels:
+          app: lpp-probes
+        namespace:  monitoring
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: lpp-probes
+        template:
+          metadata:
+            labels:
+              app: lpp-probes
+          spec:
+            containers:
+            - name: lpp-probes
+              image: registry.lpp.polytechnique.fr/lpp/lpp_probes
+              resources:
+                limits:
+                  cpu: "0.5"
+                  memory: "512Mi"
+                requests:
+                  cpu: "0.5"
+                  memory: "512Mi"
+              imagePullPolicy: Always
+
+        

@@ -1,2 +1,23 @@
 - name: install longhorn
   include: longhorn.yml
+
+- name: install registry
+  include: registry.yml
+
+- name: install compiler explorer instance
+  include: compiler-explorer.yml
+
+- name: install teamcity server access
+  include: teamcity-access.yml
+
+- name: install teamcity server
+  include: teamcity.yml
+
+- name: install graphite servers
+  include: graphite.yml
+
+- name: install grafana
+  include: grafana.yml
+
+- name: deploy lpp probes monitor
+  include: lpp-probes.yml

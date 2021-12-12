@@ -1,0 +1,165 @@
+- name:  Ensure teamcity-server namespace exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: teamcity-server
+
+- name: Create teamcity server data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: teamcity-server-storage-pvc
+        namespace: teamcity-server
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 500Gi
+
+- name: Create teamcity server logs PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: teamcity-server-logs-pvc
+        namespace: teamcity-server
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 15Gi
+
+- name: Create teamcity server postgres data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: teamcity-server-pg-data-pvc
+        namespace: teamcity-server
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn-static
+        resources:
+          requests:
+            storage: 20Gi
+
+- name: Create Teamcity Server Deployment
+  when: 2 > 1
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: teamcity-server
+        labels:
+          app: teamcity-server
+        namespace: teamcity-server
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: teamcity-server
+        template:
+          metadata:
+            labels:
+              app: teamcity-server
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: teamcity-server-pg-data
+                persistentVolumeClaim:
+                  claimName: teamcity-server-pg-data-pvc
+              - name: teamcity-server-storage
+                persistentVolumeClaim:
+                  claimName: teamcity-server-storage-pvc
+              - name: teamcity-server-logs
+                persistentVolumeClaim:
+                  claimName: teamcity-server-logs-pvc
+              - name: teamcity-ssl
+                secret:
+                  secretName: teamcity-ssl
+            containers:
+            - name: postgres
+              image: registry.lpp.polytechnique.fr/lpp/postgres_fr:12
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "1024Mi"
+                requests:
+                  cpu: "2"
+                  memory: "256Mi"
+              imagePullPolicy: Always
+              volumeMounts:
+                - mountPath: "/var/lib/postgresql/data"
+                  name: teamcity-server-pg-data
+              envFrom:
+              - secretRef:
+                  name: pgsql-secret
+            - name: teamcity-server
+              image: registry.lpp.polytechnique.fr/lpp/teamcity-server:latest
+              resources:
+                limits:
+                  cpu: "4"
+                  memory: "16Gi"
+                requests:
+                  cpu: "4"
+                  memory: "4Gi"
+              imagePullPolicy: Always
+              livenessProbe:
+                exec:
+                  command:
+                  - ls
+                  - /data/teamcity_server/datadir/lost+found
+                initialDelaySeconds: 5
+                periodSeconds: 5
+              ports:
+                - containerPort: 8111
+                  name: https
+              volumeMounts:
+                - mountPath: "/certs"
+                  name: teamcity-ssl
+                  readOnly: true
+                - mountPath: "/data/teamcity_server/datadir"
+                  name: teamcity-server-storage
+                - mountPath: "/opt/teamcity/logs"
+                  name: teamcity-server-logs
+
+
+- name: Create Teamcity Server Service
+  when: 2 > 1
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: teamcity-server
+        name: teamcity-server
+        namespace: teamcity-server
+      spec:
+        selector:
+          app: teamcity-server
+        type: NodePort
+        ports:
+          - port: 8111
+            name: https
+            targetPort: 8111
+            protocol: TCP
+            nodePort: 30002
