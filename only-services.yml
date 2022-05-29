@@ -1,0 +1,6 @@
+---
+- name: setup cluster basic services
+  hosts: main_master
+  remote_user: root
+  roles:
+    - cluster

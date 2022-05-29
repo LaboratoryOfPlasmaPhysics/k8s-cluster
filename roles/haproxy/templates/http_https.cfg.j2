@@ -4,7 +4,6 @@ frontend k8s-http
    acl is_compiler_explorer hdr_end(host) -i compiler-explorer.lab-lpp.local compiler-explorer.lpp.polytechnique.fr
    acl is_graphite hdr_end(host) -i graphite.lab-lpp.local
    acl is_sensors hdr_end(host) -i sensors.lab-lpp.local
-   use_backend k8s-backing-images if is_backing_images
    use_backend k8s-compiler-explorer if is_compiler_explorer
    use_backend k8s-graphite-http if is_graphite
    use_backend k8s-graphite-sensors-http if is_sensors
@@ -16,9 +15,12 @@ frontend k8s-https
    acl is_registry hdr_end(host) -i registry.lpp.polytechnique.fr
    acl is_grafana hdr_end(host) -i grafana.lab-lpp.local
    acl is_teamcity hdr(host) -i teamcity.lab-lpp.local teamcity.lpp.polytechnique.fr
+   acl is_elabftw hdr(host) -i elabftw.lab-lpp.local elabftw.lpp.polytechnique.fr
    use_backend k8s-registry-ui if is_registry
    use_backend k8s-grafana if is_grafana
    use_backend k8s-teamcity if is_teamcity
+   use_backend k8s-elabftw if is_elabftw
+   use_backend k8s-grafana if { path /grafana } or { path_beg /grafana/ }
 
 
 backend k8s-registry-ui
@@ -29,10 +31,18 @@ backend k8s-registry-ui
       server {{ h }} {{ hostvars[h].ansible_host }}:30999 check
    {% endfor %}
 
+backend k8s-elabftw
+   balance roundrobin
+   mode http
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+{% for h in groups['all_nodes'] %}
+      server {{ h }} {{ hostvars[h].ansible_host }}:31380 check check-ssl ssl verify none
+{% endfor %}
 
 backend k8s-grafana
    balance roundrobin
    mode http
+   http-request set-path %[path,regsub(^/grafana/?,/)]
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
 {% for h in groups['all_nodes'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31080 check check-ssl ssl verify none

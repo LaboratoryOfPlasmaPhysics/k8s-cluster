@@ -21,3 +21,6 @@
 
 - name: deploy lpp probes monitor
   include: lpp-probes.yml
+
+- name: deploy elabftw
+  include: elabftw.yml
