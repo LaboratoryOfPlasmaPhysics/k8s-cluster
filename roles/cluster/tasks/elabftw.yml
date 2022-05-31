@@ -54,7 +54,7 @@
           app: elabftw
         namespace: elabftw
       data:
-        SITE_URL: "https://elabftw.lab-lpp.local"
+        SITE_URL: "https://elabftw.lpp.polytechnique.fr"
         SERVER_NAME: "elabftw"
         DISABLE_HTTPS: 'false'
         MAX_PHP_MEMORY: "800M"
