@@ -38,15 +38,31 @@ all:
         k8s-node2.lab-lpp.local:
           ansible_host: 129.104.6.171
           is_dell_server: true
+        k8s-node3.lab-lpp.local:
+          ansible_host: 129.104.6.172
+          is_dell_server: true
         k8s-node4.lab-lpp.local:
           ansible_host: 129.104.6.173
           is_dell_server: true
         k8s-node5.lab-lpp.local:
           ansible_host: 129.104.6.174
           is_dell_server: true
+        k8s-node6.lab-lpp.local:
+          ansible_host: 129.104.6.175
+          is_dell_server: true
         k8s-node7.lab-lpp.local:
           ansible_host: 129.104.6.176
           is_dell_server: true
+
+    new_workers:
+      hosts:
+        k8s-node3.lab-lpp.local:
+          ansible_host: 129.104.6.172
+          is_dell_server: true
+        k8s-node6.lab-lpp.local:
+          ansible_host: 129.104.6.175
+          is_dell_server: true
+
 
     all_nodes:
       children:

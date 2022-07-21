@@ -1,0 +1,23 @@
+---
+- name: Common base setup
+  hosts: new_workers
+  remote_user: root
+  vars:
+    join_domain: false
+    enable_jails: [sshd]
+  roles:
+    - lpp_machine
+    - fail2ban
+    - all_machines
+
+- name: Cluster members base setup
+  hosts: new_workers
+  remote_user: root
+  roles:
+    - cluster_member
+
+- name: join cluster
+  hosts: new_workers
+  remote_user: root
+  roles:
+    - workers

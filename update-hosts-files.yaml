@@ -1,0 +1,11 @@
+---
+- name: Common base setup
+  hosts: all
+  remote_user: root
+  vars:
+    join_domain: false
+    enable_jails: [sshd]
+  roles:
+    - lpp_machine
+    - fail2ban
+    - all_machines

@@ -27,7 +27,7 @@ backend k8s-registry-ui
    mode http
    balance roundrobin
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-   {% for h in groups['all_nodes'] %}
+   {% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:30999 check
    {% endfor %}
 
@@ -35,7 +35,7 @@ backend k8s-elabftw
    balance roundrobin
    mode http
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31380 check check-ssl ssl verify none
 {% endfor %}
 
@@ -44,7 +44,7 @@ backend k8s-grafana
    mode http
    http-request set-path %[path,regsub(^/grafana/?,/)]
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31080 check check-ssl ssl verify none
 {% endfor %}
 
@@ -53,7 +53,7 @@ backend k8s-teamcity
    balance roundrobin
    mode http
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:30002 check check-ssl ssl verify none
 {% endfor %}
 
@@ -63,7 +63,7 @@ backend k8s-compiler-explorer
    mode http
    balance roundrobin
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:30004 check
 {% endfor %}
 
@@ -72,7 +72,7 @@ backend k8s-graphite-http
    mode http
    balance roundrobin
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31081 check
 {% endfor %}
 
@@ -80,6 +80,6 @@ backend k8s-graphite-sensors-http
    mode http
    balance roundrobin
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
-{% for h in groups['all_nodes'] %}
+{% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31280 check
 {% endfor %}

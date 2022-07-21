@@ -1,0 +1,5 @@
+- name: Cluster load balancer setup
+  hosts: load_balancer
+  remote_user: root
+  roles:
+    - haproxy
