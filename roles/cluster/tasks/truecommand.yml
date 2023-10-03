@@ -1,0 +1,93 @@
+- name: Ensure TrueCommand exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: truecommand
+
+- name: Create truecommand data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: truecommand-storage-pvc
+        namespace: truecommand
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 50Gi
+
+
+- name: Create truecommand Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: truecommand
+        labels:
+          app: truecommand
+        namespace: truecommand
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: truecommand
+        template:
+          metadata:
+            labels:
+              app: truecommand
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: truecommand-storage
+                persistentVolumeClaim:
+                  claimName: truecommand-storage-pvc
+            containers:
+            - name: truecommand
+              image: ixsystems/truecommand:nightly
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "1000Mi"
+                requests:
+                  cpu: "2"
+                  memory: "500Mi"
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 443
+                  name: https
+              volumeMounts:
+                - mountPath: /data
+                  name: truecommand-storage
+
+
+- name: Create truecommand Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: truecommand
+        name: truecommand
+        namespace: truecommand
+      spec:
+        selector:
+          app: truecommand
+        type: NodePort
+        ports:
+          - port: 443
+            name: https
+            targetPort: 443
+            protocol: TCP
+            nodePort: 31480

@@ -12,7 +12,7 @@ localityName = Palaiseau
 #localityName_default = Palaiseau
 organizationalUnitName = LPP
 #organizationalUnitName_default = LPP
-commonName = tickets.lab-lpp.local
+commonName = *.minio-svc.minio.svc.cluster.local
 #commonName_max = 64
 
 [ v3_req ]
@@ -22,4 +22,8 @@ keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 subjectAltName = @alt_names
 
 [alt_names]
+DNS.1 = localhost
+DNS.2 = minio.minio
+DNS.3 = minio.minio.svc.cluster.local
+DNS.4 = *.minio-svc.minio.svc.cluster.local
 IP.1 = 127.0.0.1

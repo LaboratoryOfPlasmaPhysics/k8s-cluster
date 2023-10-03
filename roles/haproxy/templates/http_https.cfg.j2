@@ -16,11 +16,17 @@ frontend k8s-https
    acl is_grafana hdr_end(host) -i grafana.lab-lpp.local
    acl is_teamcity hdr(host) -i teamcity.lab-lpp.local teamcity.lpp.polytechnique.fr
    acl is_elabftw hdr(host) -i elabftw.lab-lpp.local elabftw.lpp.polytechnique.fr
+   acl is_osticket hdr(host) -i tickets.lab-lpp.local tickets.lpp.polytechnique.fr
+   acl is_truecmd hdr(host) -i truecmd.lab-lpp.local truecmd.lpp.polytechnique.fr
+   acl is_argo hdr(host) -i argo.lab-lpp.local argo.lpp.polytechnique.fr
    use_backend k8s-registry-ui if is_registry
    use_backend k8s-grafana if is_grafana
    use_backend k8s-teamcity if is_teamcity
    use_backend k8s-elabftw if is_elabftw
+   use_backend k8s-osticket if is_osticket
+   use_backend k8s-truecommand if is_truecmd
    use_backend k8s-grafana if { path /grafana } or { path_beg /grafana/ }
+   use_backend k8s-argo if is_argo
 
 
 backend k8s-registry-ui
@@ -37,6 +43,30 @@ backend k8s-elabftw
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
 {% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:31380 check check-ssl ssl verify none
+{% endfor %}
+
+backend k8s-osticket
+   balance roundrobin
+   mode http
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+{% for h in groups['workers'] %}
+      server {{ h }} {{ hostvars[h].ansible_host }}:31382 check check-ssl ssl verify none
+{% endfor %}
+
+backend k8s-truecommand
+   balance roundrobin
+   mode http
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+{% for h in groups['workers'] %}
+      server {{ h }} {{ hostvars[h].ansible_host }}:31480 check check-ssl ssl verify none
+{% endfor %}
+
+backend k8s-argo
+   balance roundrobin
+   mode http
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+{% for h in groups['workers'] %}
+      server {{ h }} {{ hostvars[h].ansible_host }}:30328 check check-ssl ssl verify none
 {% endfor %}
 
 backend k8s-grafana

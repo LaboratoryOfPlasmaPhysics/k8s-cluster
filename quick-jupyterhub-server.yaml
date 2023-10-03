@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jupyter-temp
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority-apps
+  namespace: jupyter-temp
+value: 1000000
+preemptionPolicy: Never
+globalDefault: false
+description: "Mission Critical apps."
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jupyter-temp-storage-pvc
+  namespace: jupyter-temp
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1000Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter-temp
+  labels:
+    app: jupyter-temp
+  namespace: jupyter-temp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter-temp
+  template:
+    metadata:
+      labels:
+        app: jupyter-temp
+    spec:
+      restartPolicy: Always
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+      volumes:
+        - name: home-storage
+          persistentVolumeClaim:
+            claimName: jupyter-temp-storage-pvc
+      priorityClassName: high-priority-apps
+      containers:
+      - name: jupyter
+        image: registry.lpp.polytechnique.fr/lpp/jupyter-notebok-python:hub-2.3.1
+        resources:
+          limits:
+            cpu: "44"
+            memory: "180Gi"
+          requests:
+            cpu: "44"
+            memory: "180Gi"
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8888
+            name: http
+        volumeMounts:
+          - mountPath: /home/jovyan/work
+            name: home-storage
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    k8s-app: jupyter-temp
+  name: jupyter-temp
+  namespace: jupyter-temp
+spec:
+  selector:
+    app: jupyter-temp
+  type: NodePort
+  ports:
+    - port: 8888
+      name: http
+      targetPort: 8888
+      protocol: TCP
+      nodePort: 32767

@@ -1,0 +1,42 @@
+---
+- name: Deploy minio
+  hosts: main_master 
+  remote_user: root
+  tasks:
+    - name:  Ensure minio namespace exists
+      k8s:
+        state: present
+        definition:
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: minio
+
+    - name: check if minio is installed
+      command: kubectl get all --namespace minio
+      ignore_errors: no
+      register: cmd_result
+
+    - debug:
+        msg: "{{ cmd_result.stdout }}"
+
+    - name: copy openssl conf
+      copy:
+        src: minio.cnf
+        dest: /tmp/minio.cnf
+      when: "'pod/minio' not in cmd_result.stdout"
+
+    - name: generate certs
+      shell: |
+        openssl genrsa -out /tmp/private.key 2048
+        openssl req -new -out /tmp/minio.csr -key /tmp/private.key -config /tmp/minio.cnf
+        openssl x509 -req -days 3650 -in /tmp/minio.csr -signkey /tmp/private.key -out /tmp/public.crt -extensions v3_req -extfile /tmp/minio.cnf
+        kubectl create secret generic tls-ssl-minio --from-file=/tmp/private.key --from-file=/tmp/public.crt -n minio
+      when: "'pod/minio' not in cmd_result.stdout"
+
+    - name: Install minio helm chart
+      shell: |
+        helm repo add minio https://helm.min.io/
+        #helm install minio --namespace minio  --set tls.enabled\=true,tls.certSecret\=tls-ssl-minio,service.type\=NodePort,persistence.storageClass\=longhorn-big,mode\=distributed,replicas\=4,persistence.size\=1000Gi minio/minio
+        helm install minio --namespace minio  --set service.type\=NodePort,persistence.storageClass\=longhorn-big,mode\=distributed,replicas\=4,persistence.size\=1000Gi minio/minio 
+      when: "'pod/minio' not in cmd_result.stdout"

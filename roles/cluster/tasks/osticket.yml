@@ -1,0 +1,213 @@
+- name: Ensure osticket NS exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: osticket
+
+- name: Create osticket data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: osticket-uploads-storage-pvc
+        namespace: osticket
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 500Gi
+
+
+- name: Create osticket config PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: osticket-config-storage-pvc
+        namespace: osticket
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 500Mi
+
+- name: Create osticket DB PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: osticket-db-storage-pvc
+        namespace: osticket
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 20Gi
+
+
+- name: Create osticket configmap
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: osticket-configmap
+        labels:
+          app: osticket
+        namespace: osticket
+      data:
+        SITE_URL: "https://tickets.lpp.polytechnique.fr"
+        SERVER_NAME: "osticket"
+        DISABLE_HTTPS: 'false'
+        MAX_PHP_MEMORY: "800M"
+        MAX_UPLOAD_SIZE: "100M"
+        PHP_TIMEZONE: "Europe/Paris"
+        TZ: "Europe/Paris"
+        SET_REAL_IP: "false"
+        PHP_MAX_CHILDREN: "50"
+        PHP_MAX_EXECUTION_TIME: "50"
+        DB_HOST: "127.0.0.1"
+        MYSQL_HOST: "127.0.0.1"
+        DB_PORT: "3306"
+
+- name: check if osticket cert is installed
+  command: kubectl get secret --namespace osticket
+  ignore_errors: no
+  register: cmd_result
+
+- name: copy openssl conf
+  copy:
+    src: osticket.cnf
+    dest: /tmp/osticket.cnf
+  when: "'tls-ssl-osticket' not in cmd_result.stdout"
+
+- name: generate certs
+  shell: |
+    openssl genrsa -out /tmp/server.key 2048
+    openssl req -new -out /tmp/server.csr -key /tmp/server.key -config /tmp/osticket.cnf
+    openssl x509 -req -days 3650 -in /tmp/server.csr -signkey /tmp/server.key -out /tmp/server.crt -extensions v3_req -extfile /tmp/osticket.cnf
+    openssl dhparam -out /tmp/dhparam.pem 4096
+    kubectl create secret generic tls-ssl-osticket --from-file=/tmp/server.key --from-file=/tmp/server.crt --from-file=/tmp/dhparam.pem -n osticket
+  when: "'tls-ssl-osticket' not in cmd_result.stdout"
+
+
+#kubectl create secret -n  osticket generic osticket-secrets --from-literal="SECRET_KEY=$(openssl rand -hex 137)"
+#kubectl create secret -n  osticket generic mariadb-secrets --from-literal="MYSQL_ROOT_PASSWORD=$(pwmake 128)" --from-literal='MYSQL_USER=xxxx' --from-literal="MYSQL_PASSWORD=$(pwmake 128)" --from-literal="MYSQL_DATABASE=xxxxx"
+
+- name: Create osticket Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: osticket
+        labels:
+          app: osticket
+        namespace: osticket
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: osticket
+        template:
+          metadata:
+            labels:
+              app: osticket
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: osticket-config-storage
+                persistentVolumeClaim:
+                  claimName: osticket-config-storage-pvc
+              - name: osticket-uploads-storage
+                persistentVolumeClaim:
+                  claimName: osticket-uploads-storage-pvc
+              - name: mariadb
+                persistentVolumeClaim:
+                  claimName: osticket-db-storage-pvc
+              - name: tls-ssl-osticket
+                secret:
+                  secretName: tls-ssl-osticket
+            containers:
+            - name: osticket
+              image: registry.lpp.polytechnique.fr/lpp/osticket-docker
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "1000Mi"
+                requests:
+                  cpu: "2"
+                  memory: "500Mi"
+              imagePullPolicy: Always
+              envFrom:
+              - configMapRef:
+                  name: osticket-configmap
+              - secretRef:
+                  name: osticket-secrets
+              - secretRef:
+                  name: mariadb-secrets
+              ports:
+                - containerPort: 443
+                  name: https
+              volumeMounts:
+                - mountPath: /osticket/uploads
+                  name: osticket-uploads-storage
+                - mountPath: /osticket/config
+                  name: osticket-config-storage
+                - mountPath: "/ssl/live/osticket"
+                  name: tls-ssl-osticket
+                  
+            - name: mysql
+              image: mysql:8.1
+              envFrom:
+              - secretRef:
+                  name: mariadb-secrets
+              env:
+              - name: TZ
+                value: "Europe/Paris"
+              securityContext:
+                capabilities:
+                  drop: ["AUDIT_WRITE", "MKNOD", "SYS_CHROOT", "SETFCAP", "NET_RAW"]
+              volumeMounts:
+              - mountPath: /var/lib/mysql
+                name: mariadb
+                subPath: mariadb
+
+- name: Create osticket Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: osticket
+        name: osticket
+        namespace: osticket
+      spec:
+        selector:
+          app: osticket
+        type: NodePort
+        ports:
+          - port: 443
+            name: https
+            targetPort: 443
+            protocol: TCP
+            nodePort: 31382

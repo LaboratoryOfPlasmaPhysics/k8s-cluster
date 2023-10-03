@@ -106,10 +106,10 @@
               resources:
                 limits:
                   cpu: "2"
-                  memory: "500Mi"
+                  memory: "4Gi"
                 requests:
                   cpu: "2"
-                  memory: "500Mi"
+                  memory: "4Gi"
               imagePullPolicy: Always
               livenessProbe:
                 exec:
@@ -305,10 +305,10 @@
               resources:
                 limits:
                   cpu: "2"
-                  memory: "500Mi"
+                  memory: "4Gi"
                 requests:
                   cpu: "2"
-                  memory: "500Mi"
+                  memory: "4Gi"
               imagePullPolicy: Always
               livenessProbe:
                 exec:

@@ -55,6 +55,8 @@
               env:
                 - name: REGISTRY_STORAGE_DELETE_ENABLED
                   value: "true"
+                - name: REGISTRY_CATALOG_MAXENTRIES
+                  value: 100000
               image: registry:2
               imagePullPolicy: Always
               ports:

@@ -1,26 +1,32 @@
 - name: install longhorn
-  include: longhorn.yml
+  import_tasks: longhorn.yml
 
 - name: install registry
-  include: registry.yml
+  import_tasks: registry.yml
 
 - name: install compiler explorer instance
-  include: compiler-explorer.yml
+  import_tasks: compiler-explorer.yml
 
 - name: install teamcity server access
-  include: teamcity-access.yml
+  import_tasks: teamcity-access.yml
 
 - name: install teamcity server
-  include: teamcity.yml
+  import_tasks: teamcity.yml
 
 - name: install graphite servers
-  include: graphite.yml
+  import_tasks: graphite.yml
 
 - name: install grafana
-  include: grafana.yml
+  import_tasks: grafana.yml
 
 - name: deploy lpp probes monitor
-  include: lpp-probes.yml
+  import_tasks: lpp-probes.yml
 
 - name: deploy elabftw
-  include: elabftw.yml
+  import_tasks: elabftw.yml
+
+- name: deploy truecommand
+  import_tasks: truecommand.yml
+
+- name: deploy osticket
+  import_tasks: osticket.yml
