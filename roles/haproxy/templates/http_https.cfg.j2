@@ -1,3 +1,8 @@
+defaults 
+    timeout connect 5s
+    timeout client 1m
+    timeout server 1m    
+    
 frontend k8s-http
    bind 0.0.0.0:80
    mode http
@@ -19,6 +24,9 @@ frontend k8s-https
    acl is_osticket hdr(host) -i tickets.lab-lpp.local tickets.lpp.polytechnique.fr
    acl is_truecmd hdr(host) -i truecmd.lab-lpp.local truecmd.lpp.polytechnique.fr
    acl is_argo hdr(host) -i argo.lab-lpp.local argo.lpp.polytechnique.fr
+{% for service in https_websites['resources'] %}
+   acl is_{{ service['metadata']['name'] }} hdr(host) -i {{ service['metadata']['name'] }}.lab-lpp.local {{ service['metadata']['name'] }}.lpp.polytechnique.fr
+{% endfor %}
    use_backend k8s-registry-ui if is_registry
    use_backend k8s-grafana if is_grafana
    use_backend k8s-teamcity if is_teamcity
@@ -27,6 +35,10 @@ frontend k8s-https
    use_backend k8s-truecommand if is_truecmd
    use_backend k8s-grafana if { path /grafana } or { path_beg /grafana/ }
    use_backend k8s-argo if is_argo
+{% for service in https_websites['resources'] %}
+   use_backend k8s-{{ service['metadata']['name'] }} if is_{{ service['metadata']['name'] }}
+{% endfor %}
+   
 
 
 backend k8s-registry-ui
@@ -67,6 +79,18 @@ backend k8s-argo
    default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
 {% for h in groups['workers'] %}
       server {{ h }} {{ hostvars[h].ansible_host }}:30328 check check-ssl ssl verify none
+{% endfor %}
+
+{% for service in https_websites['resources'] %}
+
+backend k8s-{{ service['metadata']['name'] }}
+   balance roundrobin
+   mode http
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+   {% for h in groups['workers'] %}
+      server {{ h }} {{ hostvars[h].ansible_host }}:{{ service['spec']['ports'][0]['nodePort'] }} check check-ssl ssl verify none
+   {% endfor %}
+   
 {% endfor %}
 
 backend k8s-grafana

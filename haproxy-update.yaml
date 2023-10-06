@@ -1,5 +1,29 @@
+- name: setup cluster basic services
+  hosts: main_master
+  remote_user: root
+  tasks:
+    - name: Get a list of all service objects
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: lpp-websites
+      register: lpp_websites_services 
+    - name: Print lpp websites services
+      ansible.builtin.debug:
+        msg: |
+            lpp websites:
+            {% for service in lpp_websites_services['resources'] %}
+                {{ service['metadata']['name'] }} : {{ service['spec']['ports'][0]['nodePort'] }}
+            {% endfor %}
+    - name: test
+      ansible.builtin.debug:
+        msg: "{{ hostvars }}"
+      
+
 - name: Cluster load balancer setup
   hosts: load_balancer
   remote_user: root
   roles:
     - haproxy
+  vars:
+    lpp_websites: "{{ hostvars[groups['main_master'][0]]['lpp_websites_services'] }}"

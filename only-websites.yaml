@@ -1,0 +1,6 @@
+---
+- name: deploy lpp websites
+  hosts: main_master
+  remote_user: root
+  roles:
+    - lpp_websites

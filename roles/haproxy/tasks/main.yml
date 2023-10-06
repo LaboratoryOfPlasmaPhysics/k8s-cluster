@@ -45,9 +45,12 @@
   template:
     src: http_https.cfg.j2
     dest: /etc/haproxy.cfg.d/http_https.cfg
+    #dest: /tmp/http_https.cfg
     owner: root
     group: root
     mode: '0644'
+  vars:
+    https_websites: "{{ lpp_websites }}"
 
 - name: Add registry haproxy cfg
   template:

@@ -1,0 +1,45 @@
+- name: deploy themis website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: themis
+    node_port: 31383
+    storage_size: 1Gi
+
+
+- name: deploy staff-routine-plot website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: "staff-routine-plot"
+    node_port: 31384
+    storage_size: 180Gi
+
+
+- name: deploy whisper website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: whisper
+    node_port: 31385
+    storage_size: 50Gi
+
+
+- name: deploy cluster website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: cluster
+    node_port: 31386
+    storage_size: 250Gi
+
+    
+- name: deploy rpws-sounder website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: "rpws-sounder"
+    node_port: 31387
+    storage_size: 10Gi
+
+- name: deploy doublestar website
+  import_tasks: simple_https.yml
+  vars:
+    site_name: doublestar
+    node_port: 31388
+    storage_size: 10Gi

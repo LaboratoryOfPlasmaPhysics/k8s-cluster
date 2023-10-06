@@ -1,0 +1,209 @@
+- name: Ensure LPP websites NS exists
+  k8s:
+    state: present
+    definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: lpp-websites
+
+- name: Create {{ site_name }} data PersistentVolumeClaim
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ site_name }}-www-storage-pvc"
+        namespace: lpp-websites
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: "{{ storage_size }}"
+
+
+- name: "Create {{ site_name }} httpd.conf configmap"
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: "{{ site_name }}-httpd-configmap"
+        labels:
+          app: "{{ site_name }}"
+        namespace: lpp-websites
+      data:
+        http.conf: |
+          <VirtualHost *:443>
+              ServerAdmin webmaster@localhost
+              ServerName {{ site_name }}.lpp.polytechnique.fr
+              DocumentRoot /var/www/{{ site_name }}/
+              TraceEnable off
+              SSLEngine On
+              SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+              SSLHonorCipherOrder on
+              SSLCipherSuite "EECDH+ECDSA+AESGCM EECDH+aRSA+AESGCM EECDH+ECDSA+SHA384 \
+              EECDH+ECDSA+SHA256 EECDH+aRSA+SHA384 EECDH+aRSA+SHA256 EECDH+aRSA+RC4 \
+              EECDH EDH+aRSA !RC4 !aNULL !eNULL !LOW !3DES !MD5 !EXP !PSK !SRP !DSS !AECDH"
+
+
+              SSLCertificateFile /ssl/live/{{ site_name }}/server.crt
+              SSLCertificateKeyFile /ssl/live/{{ site_name }}/server.key
+              php_admin_flag engine on
+              php_admin_value open_basedir "/var/www/{{ site_name }}/"
+
+              <Directory />
+                    Options FollowSymLinks
+                    AllowOverride None
+                    Order deny,allow
+                    Deny from all
+              </Directory>
+              <Directory /var/www/{{ site_name }}>
+                    Options FollowSymLinks MultiViews
+                    AllowOverride None
+                    Order deny,allow
+                    allow from all
+              </Directory>
+
+              LogLevel warn
+
+              <IfModule mod_rewrite.c>
+                    RewriteEngine on
+                    RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+                    RewriteRule .* - [F]
+              </IfModule>
+
+
+            </VirtualHost>
+
+
+- name: check if {{ site_name }} cert is installed
+  command: kubectl get secret --namespace lpp-websites
+  ignore_errors: no
+  register: cmd_result
+
+- name: copy openssl conf
+  copy:
+    content: |
+      [req]
+      distinguished_name = req_distinguished_name
+      req_extensions = v3_req
+      prompt = no
+
+      [req_distinguished_name]
+      countryName = FR
+      #countryName_default = FR
+      stateOrProvinceName = Ile de France
+      #stateOrProvinceName_default = Ile de France
+      localityName = Palaiseau
+      #localityName_default = Palaiseau
+      organizationalUnitName = LPP
+      #organizationalUnitName_default = LPP
+      commonName = {{ site_name }}.lab-lpp.local
+      #commonName_max = 64
+
+      [ v3_req ]
+      # Extensions to add to a certificate request
+      basicConstraints = CA:FALSE
+      keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+      subjectAltName = @alt_names
+
+      [alt_names]
+      IP.1 = 127.0.0.1
+    dest: /tmp/{{ site_name }}.cnf
+  when: "'tls-ssl-{{ site_name }}' not in cmd_result.stdout"
+
+- name: generate certs
+  shell: |
+    openssl genrsa -out /tmp/server.key 2048
+    openssl req -new -out /tmp/server.csr -key /tmp/server.key -config /tmp/{{ site_name }}.cnf
+    openssl x509 -req -days 3650 -in /tmp/server.csr -signkey /tmp/server.key -out /tmp/server.crt -extensions v3_req -extfile /tmp/{{ site_name }}.cnf
+    #openssl dhparam -out /tmp/dhparam.pem 4096
+    #kubectl create secret generic tls-ssl-{{ site_name }} --from-file=/tmp/server.key --from-file=/tmp/server.crt --from-file=/tmp/dhparam.pem -n lpp-websites
+    kubectl create secret generic tls-ssl-{{ site_name }} --from-file=/tmp/server.key --from-file=/tmp/server.crt -n lpp-websites
+  when: "'tls-ssl-{{ site_name }}' not in cmd_result.stdout"
+
+
+
+
+- name: Create {{ site_name }} Deployment
+  k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: "{{ site_name }}"
+        labels:
+          app: "{{ site_name }}"
+        namespace: lpp-websites
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: "{{ site_name }}"
+        template:
+          metadata:
+            labels:
+              app: "{{ site_name }}"
+          spec:
+            restartPolicy: Always
+            volumes:
+              - name: "{{ site_name }}-www-storage"
+                persistentVolumeClaim:
+                  claimName: "{{ site_name }}-www-storage-pvc"
+                  readOnly: true
+              - name: "http-conf-{{ site_name }}"
+                configMap:
+                  name: "{{ site_name }}-httpd-configmap"
+              - name: "tls-ssl-{{ site_name }}"
+                secret:
+                  secretName: "tls-ssl-{{ site_name }}"
+            containers:
+            - name: httpd-lpp
+              image: registry.lpp.polytechnique.fr/lpp/httpd_lpp
+              resources:
+                limits:
+                  cpu: "1"
+                  memory: "500Mi"
+                requests:
+                  cpu: "0.5"
+                  memory: "200Mi"
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 443
+                  name: https
+              volumeMounts:
+                - mountPath: /var/www/
+                  name: "{{ site_name }}-www-storage"
+                - mountPath: /etc/apache2/sites-docker
+                  name: "http-conf-{{ site_name }}"
+                - mountPath: "/ssl/live/{{ site_name }}"
+                  name: "tls-ssl-{{ site_name }}"
+
+
+- name: Create {{ site_name }} Service
+  k8s:
+    state: present
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        labels:
+          k8s-app: "{{ site_name }}"
+        name: "{{ site_name }}"
+        namespace: lpp-websites
+      spec:
+        selector:
+          app: "{{ site_name }}"
+        type: NodePort
+        ports:
+          - port: 443
+            name: https
+            targetPort: 443
+            protocol: TCP
+            nodePort: "{{ node_port }}"
